@@ -1,5 +1,5 @@
 {
-    "name": "vitapublic/humus-amqp-module",
+    "name": "prolic/humus-amqp-module",
     "type": "library",
     "description": "AMQP module for Zend Framework 2 to integrate RabbitMQ",
     "keywords": ["zf2", "rabbit", "rabbitmq", "queue", "amqp", "humus"],
