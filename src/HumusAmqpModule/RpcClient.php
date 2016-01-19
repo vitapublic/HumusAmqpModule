@@ -139,7 +139,7 @@ class RpcClient implements EventManagerAwareInterface
             $time = microtime(1);
         } while (
             (count($this->replies) < $this->requests)
-            && (($time - $now) < $this->timeout)
+            && (($time - $now) < $this->timeout && $this->timeout > 0)
         );
 
         $this->requests = 0;
