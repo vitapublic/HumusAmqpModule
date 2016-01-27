@@ -47,6 +47,32 @@ class RpcServer extends Consumer
     }
 
     /**
+     * Start consumer
+     *
+     * @param int $msgAmount
+     */
+    public function consume($msgAmount = 0)
+    {
+        // get first queue - we only have one queue for rpc server
+        $this->queues->next();
+        $queue = $this->getQueue();
+
+        $queue->consume(
+            function ($message) use ($queue) {
+                if ($message instanceof AMQPEnvelope) {
+                    try {
+                        $processFlag = $this->handleDelivery($message, $queue);
+                    } catch (\Exception $e) {
+                        $this->handleDeliveryException($e);
+                        $processFlag = false;
+                    }
+                    $this->handleProcessFlag($message, $processFlag);
+                }
+            }
+        );
+    }
+
+    /**
      * @param AMQPEnvelope $message
      * @param AMQPQueue $queue
      * @return bool|null
