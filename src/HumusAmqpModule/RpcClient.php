@@ -74,15 +74,15 @@ class RpcClient implements EventManagerAwareInterface
      * @param string $requestId
      * @param string $routingKey
      * @param int $expiration
-     * @throws Exception\InvalidArgumentException
+     * @param array $headers
      */
-    public function addRequest($msgBody, $server, $requestId, $routingKey = '', $expiration = 0)
+    public function addRequest($msgBody, $server, $requestId, $routingKey = '', $expiration = 0, $headers = [])
     {
         if (empty($requestId)) {
             throw new Exception\InvalidArgumentException('You must provide a request Id');
         }
 
-        $params = compact('msgBody', 'server', 'requestId', 'routingKey', 'expiration');
+        $params = compact('msgBody', 'server', 'requestId', 'routingKey', 'expiration', 'headers');
         $results = $this->getEventManager()->trigger(__FUNCTION__, $this, $params);
         $result = $results->last();
 
@@ -92,12 +92,15 @@ class RpcClient implements EventManagerAwareInterface
             $requestId  = $result['requestId'];
             $routingKey = $result['routingKey'];
             $expiration = $result['expiration'];
+            $headers    = $result['headers'];
         }
-        
+
         $messageAttributes = new MessageAttributes();
         $messageAttributes->setReplyTo($this->queue->getName());
         $messageAttributes->setDeliveryMode(MessageAttributes::DELIVERY_MODE_NON_PERSISTENT);
         $messageAttributes->setCorrelationId($requestId);
+        $messageAttributes->setHeaders($headers);
+
         if (0 != $expiration) {
             $messageAttributes->setExpiration($expiration * 1000);
         }
