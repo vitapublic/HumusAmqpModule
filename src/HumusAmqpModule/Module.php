@@ -124,7 +124,7 @@ class Module implements
     {
         $usage = array();
 
-        if (class_exists('HumusSupervisorModule\\Module')) {
+        if (@class_exists('HumusSupervisorModule\\Module')) {
             $usage['humus amqp gen-supervisord-config [<path>]'] =
                 'Generate supervisord configuration with optional path (absolute or relative)';
         }

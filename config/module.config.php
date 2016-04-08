@@ -107,7 +107,7 @@ $config = array(
     ),
 );
 
-if (class_exists('HumusSupervisorModule\\Module')) {
+if (@class_exists('HumusSupervisorModule\\Module')) {
     $config['console']['router']['routes']['humus_amqp_module-gen-supervisord-config'] = array(
         'options' => array(
             'route' => 'humus amqp gen-supervisord-config [<path>]',
