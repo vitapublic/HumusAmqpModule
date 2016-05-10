@@ -191,6 +191,28 @@ class Consumer implements ConsumerInterface, EventManagerAwareInterface
      */
     public function consume($msgAmount = 0)
     {
+        // We only have one queue each consumer
+        // get first queue - we only have one queue for rpc server
+        $this->queues->next();
+        $queue = $this->getQueue();
+
+        $queue->consume(
+            function ($message) use ($queue) {
+                if ($message instanceof AMQPEnvelope) {
+                    try {
+                        $processFlag = $this->handleDelivery($message, $queue);
+                    } catch (\Exception $e) {
+                        $this->handleDeliveryException($e);
+                        $processFlag = false;
+                    }
+                    $this->handleProcessFlag($message, $processFlag);
+                }
+            }
+        );
+        /*
+         * Original code from humus-amqp-module
+         * Handling for multiple queues on one consumer
+         *
         $this->target = $msgAmount;
 
         foreach ($this->queues as $index => $queue) {
@@ -230,6 +252,7 @@ class Consumer implements ConsumerInterface, EventManagerAwareInterface
                 break;
             }
         }
+        */
     }
 
     /**
