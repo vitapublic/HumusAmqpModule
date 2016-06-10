@@ -37,9 +37,9 @@ class RpcClient implements EventManagerAwareInterface
     protected $queue;
 
     /**
-     * @var int
+     * @var array
      */
-    protected $requests;
+    protected $requests = [];
 
     /**
      * @var array
@@ -108,7 +108,7 @@ class RpcClient implements EventManagerAwareInterface
 
         $exchange = $this->getExchange($server);
         $exchange->publish($msgBody, $routingKey, $messageAttributes->getFlags(), $messageAttributes->toArray());
-        $this->requests++;
+        $this->requests[$requestId] = true;
 
         if ($expiration > $this->timeout) {
             $this->timeout = $expiration;
@@ -134,7 +134,7 @@ class RpcClient implements EventManagerAwareInterface
         do {
             $message = $this->queue->get(AMQP_AUTOACK);
 
-            if ($message) {
+            if ($message && array_key_exists($message->getCorrelationId(), $this->requests)) {
                 $this->replies[$message->getCorrelationId()] = $message->getBody();
             } else {
                 usleep(1000); // 1/1000 sec
@@ -142,11 +142,11 @@ class RpcClient implements EventManagerAwareInterface
 
             $time = microtime(1);
         } while (
-            (count($this->replies) < $this->requests)
+            (count($this->replies) < count($this->requests))
             && (($time - $now) < $this->timeout && $this->timeout > 0)
         );
 
-        $this->requests = 0;
+        $this->requests = [];
         $this->timeout = 0;
 
         $results = $this->getEventManager()->trigger(__FUNCTION__, $this, ['replies' => $this->replies]);
