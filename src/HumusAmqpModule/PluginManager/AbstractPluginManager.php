@@ -26,7 +26,7 @@ use Zend\ServiceManager\AbstractPluginManager as ZendPluginManager;
  * Useful for compatibility between v2 and v3
  * @package HumusAmqpModule\PluginManager
  */
-class AbstractPluginManager extends ZendPluginManager
+abstract class AbstractPluginManager extends ZendPluginManager
 {
 
     /**
@@ -43,4 +43,12 @@ class AbstractPluginManager extends ZendPluginManager
     {
         $this->validate($plugin);
     }
+
+    /**
+     * Function validate
+     *
+     * @param $plugin
+     * @return   mixed
+     */
+    abstract function validate($plugin);
 }

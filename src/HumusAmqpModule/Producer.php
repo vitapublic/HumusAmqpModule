@@ -31,6 +31,8 @@ class Producer implements ProducerInterface
      */
     protected $exchange;
 
+    protected $eventManager;
+
     /**
      * Constructor
      *
@@ -48,6 +50,17 @@ class Producer implements ProducerInterface
      */
     public function publish($body, $routingKey = '', $attributes = null)
     {
+        $params = compact('body', 'routingKey', 'attributes');
+
+        $results = $this->getEventManager()->trigger(__FUNCTION__, $this, $params);
+        $result = $results->last();
+
+        if (is_array($result)) {
+            $body       = $result['body'];
+            $routingKey = $result['routingKey'];
+            $attributes = $result['attributes'];
+        }
+
         if (!$attributes instanceof MessageAttributes) {
             $attributes = new MessageAttributes($attributes);
         }
@@ -73,4 +86,21 @@ class Producer implements ProducerInterface
             $this->exchange->publish($body, $routingKey, $flags, $attributes);
         }
     }
+
+    /**
+     * @return mixed
+     */
+    public function getEventManager()
+    {
+        return $this->eventManager;
+    }
+
+    /**
+     * @param mixed $eventManager
+     */
+    public function setEventManager($eventManager)
+    {
+        $this->eventManager = $eventManager;
+    }
+
 }

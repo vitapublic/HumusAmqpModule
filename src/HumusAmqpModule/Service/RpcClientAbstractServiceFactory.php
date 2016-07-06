@@ -56,7 +56,20 @@ class RpcClientAbstractServiceFactory extends AbstractAmqpQueueAbstractServiceFa
         $queueSpec = $this->getQueueSpec($container, $spec['queue']);
         $queue     = $this->getQueue($queueSpec, $channel, $this->useAutoSetupFabric($spec));
 
-        return new RpcClient($queue);
+        $rpcClient = new RpcClient($queue);
+
+        if (isset($spec['listeners']) and is_array($spec['listeners'])) {
+            $rpcClient->setEventManager($container->get('eventManager'));
+            foreach ($spec['listeners'] as $listener) {
+                if (is_string($listener)) {
+                    /** @var \Zend\EventManager\ListenerAggregateInterface $listener */
+                    $listener = $container->get($listener);
+                }
+                $rpcClient->getEventManager()->attach($listener);
+            }
+        }
+
+        return $rpcClient;
     }
 
     /**

@@ -20,6 +20,7 @@ namespace HumusAmqpModule;
 
 use AMQPExchange;
 use AMQPQueue;
+use Zend\EventManager\EventManagerAwareTrait;
 
 /**
  * Class RpcClient
@@ -27,15 +28,16 @@ use AMQPQueue;
  */
 class RpcClient
 {
+    use EventManagerAwareTrait;
     /**
      * @var AMQPQueue
      */
     protected $queue;
 
     /**
-     * @var int
+     * @var array
      */
-    protected $requests;
+    protected $requests = [];
 
     /**
      * @var array
@@ -70,25 +72,41 @@ class RpcClient
      * @param string $requestId
      * @param string $routingKey
      * @param int $expiration
+     * @param array $headers
      * @throws Exception\InvalidArgumentException
      */
-    public function addRequest($msgBody, $server, $requestId, $routingKey = '', $expiration = 0)
+    public function addRequest($msgBody, $server, $requestId, $routingKey = '', $expiration = 0, $headers = [])
     {
         if (empty($requestId)) {
             throw new Exception\InvalidArgumentException('You must provide a request Id');
+        }
+
+        $params = compact('msgBody', 'server', 'requestId', 'routingKey', 'expiration', 'headers');
+        $results = $this->getEventManager()->trigger(__FUNCTION__, $this, $params);
+        $result = $results->last();
+
+        if (is_array($result)) {
+            $msgBody    = $result['msgBody'];
+            $server     = $result['server'];
+            $requestId  = $result['requestId'];
+            $routingKey = $result['routingKey'];
+            $expiration = $result['expiration'];
+            $headers    = $result['headers'];
         }
 
         $messageAttributes = new MessageAttributes();
         $messageAttributes->setReplyTo($this->queue->getName());
         $messageAttributes->setDeliveryMode(MessageAttributes::DELIVERY_MODE_NON_PERSISTENT);
         $messageAttributes->setCorrelationId($requestId);
+        $messageAttributes->setHeaders($headers);
+
         if (0 != $expiration) {
             $messageAttributes->setExpiration($expiration * 1000);
         }
 
         $exchange = $this->getExchange($server);
         $exchange->publish($msgBody, $routingKey, $messageAttributes->getFlags(), $messageAttributes->toArray());
-        $this->requests++;
+        $this->requests[$requestId] = true;
 
         if ($expiration > $this->timeout) {
             $this->timeout = $expiration;
@@ -114,16 +132,19 @@ class RpcClient
         do {
             $message = $this->queue->get(AMQP_AUTOACK);
 
-            if ($message) {
+            if ($message && array_key_exists($message->getCorrelationId(), $this->requests)) {
                 $this->replies[$message->getCorrelationId()] = $message->getBody();
             } else {
                 usleep(1000); // 1/1000 sec
             }
 
             $time = microtime(1);
-        } while ((count($this->replies) < $this->requests) || (($time - $now) < $this->timeout));
+        } while (
+            (count($this->replies) < count($this->requests))
+            && (($time - $now) < $this->timeout && $this->timeout > 0)
+        );
 
-        $this->requests = 0;
+        $this->requests = [];
         $this->timeout = 0;
 
         return $this->replies;
@@ -146,4 +167,21 @@ class RpcClient
         $this->exchanges[$name] = $exchange;
         return $exchange;
     }
+
+    /**
+     * @return null
+     */
+    public function getEventManager()
+    {
+        return $this->eventManager;
+    }
+
+    /**
+     * @param null $eventManager
+     */
+    public function setEventManager($eventManager)
+    {
+        $this->eventManager = $eventManager;
+    }
+
 }

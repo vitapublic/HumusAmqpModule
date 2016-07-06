@@ -21,6 +21,7 @@ namespace HumusAmqpModule;
 use AMQPEnvelope;
 use AMQPExchange;
 use AMQPQueue;
+use \Zend\EventManager\EventManagerAwareTrait;
 
 /**
  * Class RpcServer
@@ -28,11 +29,12 @@ use AMQPQueue;
  */
 class RpcServer extends Consumer
 {
+    use EventManagerAwareTrait;
+
     /**
      * @var AMQPExchange
      */
     protected $exchange;
-
     /**
      * Constructor
      *
@@ -44,6 +46,32 @@ class RpcServer extends Consumer
     {
         $queues = [$queue];
         parent::__construct($queues, $idleTimeout, $waitTimeout);
+    }
+
+    /**
+     * Start consumer
+     *
+     * @param int $msgAmount
+     */
+    public function consume($msgAmount = 0)
+    {
+        // get first queue - we only have one queue for rpc server
+        $this->queues->next();
+        $queue = $this->getQueue();
+
+        $queue->consume(
+            function ($message) use ($queue) {
+                if ($message instanceof AMQPEnvelope) {
+                    try {
+                        $processFlag = $this->handleDelivery($message, $queue);
+                    } catch (\Exception $e) {
+                        $this->handleDeliveryException($e);
+                        $processFlag = false;
+                    }
+                    $this->handleProcessFlag($message, $processFlag);
+                }
+            }
+        );
     }
 
     /**
@@ -60,14 +88,13 @@ class RpcServer extends Consumer
             $this->timestampLastMessage = microtime(1);
             $this->ack();
 
-            $callback = $this->getDeliveryCallback();
-            $result = call_user_func_array($callback, [$message, $queue]);
+            $params = compact('message', 'queue');
+            $results = $this->getEventManager()->trigger('delivery', $this, $params);
+            $result = $results->last();
 
             $reponse = json_encode(['success' => true, 'result' => $result]);
             $this->sendReply($reponse, $message->getReplyTo(), $message->getCorrelationId());
         } catch (\Exception $e) {
-            var_dump($e->getMessage());
-            die;
             $reponse = json_encode(['success' => false, 'error' => $e->getMessage()]);
             $this->sendReply($reponse, $message->getReplyTo(), $message->getCorrelationId());
         }
@@ -124,4 +151,5 @@ class RpcServer extends Consumer
     {
         $this->exchange = $exchange;
     }
+
 }

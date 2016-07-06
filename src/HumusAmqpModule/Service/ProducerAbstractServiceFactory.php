@@ -52,7 +52,10 @@ class ProducerAbstractServiceFactory extends AbstractAmqpAbstractServiceFactory
         $channel    = $this->createChannel($connection, $spec);
 
         $exchange = $this->getExchange($container, $channel, $spec['exchange'], $this->useAutoSetupFabric($spec));
-        return new Producer($exchange);
+
+        $producer = new Producer($exchange);
+        $producer->setEventManager($container->get('eventManager'));
+        return $producer;
     }
 
     /**

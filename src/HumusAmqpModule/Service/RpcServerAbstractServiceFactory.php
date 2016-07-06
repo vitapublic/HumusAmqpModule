@@ -83,12 +83,21 @@ class RpcServerAbstractServiceFactory extends AbstractAmqpQueueAbstractServiceFa
             $rpcServer->setLogger($this->getDefaultNullLogger());
         }
 
-        $callbackManager = $this->getCallbackManager($container);
-
         /** @var callable $callback */
-        $callback = $callbackManager->get($spec['callback']);
-
-        $rpcServer->setDeliveryCallback($callback);
+        $callbackManager = $this->getCallbackManager($container);
+        $rpcServer->setEventManager($container->get('eventManager'));
+        if (isset($spec['callback'])) {
+            if (!$callbackManager->has($spec['callback'])) {
+                throw new Exception\InvalidArgumentException(
+                    'The required callback ' . $spec['callback'] . ' can not be found'
+                );
+            }
+            /** @var callable $callback */
+            $callback = $callbackManager->get($spec['callback']);
+            if ($callback) {
+                $rpcServer->getEventManager()->attach('delivery', $callback);
+            }
+        }
 
         if (array_key_exists('error_callback', $spec)) {
             if (!$callbackManager->has($spec['error_callback'])) {
@@ -102,7 +111,7 @@ class RpcServerAbstractServiceFactory extends AbstractAmqpQueueAbstractServiceFa
         }
 
         return $rpcServer;
-    }
+        }
 
     /**
      * @param ContainerInterface $container
