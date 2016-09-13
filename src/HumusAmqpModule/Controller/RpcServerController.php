@@ -112,6 +112,22 @@ class RpcServerController extends AbstractConsoleController
      */
     protected function registerSignalHandler()
     {
+        // Use php-signal-handler
+        // @see https://github.com/pdezwart/php-amqp
+        // @see https://github.com/rstgroup/php-signal-handler
+        if (!extension_loaded('signal_handler') || !function_exists('attach_signal')) {
+            throw new Exception\BadFunctionCallException(
+                "php-module signal_handler is missing. Please load that extension or run service without signals (-w|--without-signals)"
+            );
+        }
+
+        attach_signal(SIGTERM, [$this, 'stopRpcServer']);
+        attach_signal(SIGINT, [$this, 'stopRpcServer']);
+        attach_signal(SIGHUP, [$this, 'stopRpcServer']);
+
+        /**
+         * Original code using pcntl extensions
+         *
         if (!extension_loaded('pcntl')) {
             throw new Exception\ExtensionNotLoadedException(
                 'pcntl extension missing'
@@ -127,5 +143,8 @@ class RpcServerController extends AbstractConsoleController
         pcntl_signal(SIGTERM, array($this, 'stopRpcServer'));
         pcntl_signal(SIGINT, array($this, 'stopRpcServer'));
         pcntl_signal(SIGHUP, array($this, 'stopRpcServer'));
+
+         *
+         */
     }
 }

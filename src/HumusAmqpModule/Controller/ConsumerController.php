@@ -120,6 +120,22 @@ class ConsumerController extends AbstractConsoleController implements ConsumerMa
      */
     protected function registerSignalHandler()
     {
+        // Use php-signal-handler
+        // @see https://github.com/pdezwart/php-amqp
+        // @see https://github.com/rstgroup/php-signal-handler
+        if (!extension_loaded('signal_handler') || !function_exists('attach_signal')) {
+            throw new Exception\BadFunctionCallException(
+                "php-module signal_handler is missing. Please load that extension or run service without signals (-w|--without-signals)"
+            );
+        }
+
+        attach_signal(SIGTERM, [$this, 'stopConsumer']);
+        attach_signal(SIGINT, [$this, 'stopConsumer']);
+        attach_signal(SIGHUP, [$this, 'stopConsumer']);
+
+        /**
+         * Original code using pcntl extensions
+         *
         if (!extension_loaded('pcntl')) {
             throw new Exception\ExtensionNotLoadedException(
                 'pcntl extension missing'
@@ -135,5 +151,8 @@ class ConsumerController extends AbstractConsoleController implements ConsumerMa
         pcntl_signal(SIGTERM, array($this, 'stopConsumer'));
         pcntl_signal(SIGINT, array($this, 'stopConsumer'));
         pcntl_signal(SIGHUP, array($this, 'stopConsumer'));
+
+         *
+         */
     }
 }

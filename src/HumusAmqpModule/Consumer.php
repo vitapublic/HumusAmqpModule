@@ -69,6 +69,11 @@ class Consumer implements ConsumerInterface, EventManagerAwareInterface
     protected $keepAlive = true;
 
     /**
+     * @var bool
+     */
+    protected $msgInProgress = false;
+
+    /**
      * Idle timeout in seconds
      *
      * @var float
@@ -129,7 +134,7 @@ class Consumer implements ConsumerInterface, EventManagerAwareInterface
      */
     public function __construct($queues, $idleTimeout, $waitTimeout)
     {
-        if (function_exists('pcntl_signal_dispatch')) {
+        if (extension_loaded('signal_handler') && function_exists('attach_signal')) {
             $this->usePcntlSignalDispatch = true;
         }
 
@@ -198,6 +203,7 @@ class Consumer implements ConsumerInterface, EventManagerAwareInterface
 
         $queue->consume(
             function ($message) use ($queue) {
+                $this->msgInProgress = true;
                 if ($message instanceof AMQPEnvelope) {
                     try {
                         $processFlag = $this->handleDelivery($message, $queue);
@@ -206,6 +212,10 @@ class Consumer implements ConsumerInterface, EventManagerAwareInterface
                         $processFlag = false;
                     }
                     $this->handleProcessFlag($message, $processFlag);
+                }
+                $this->msgInProgress = false;
+                if (false == $this->keepAlive) {
+                    return false;
                 }
             }
         );
@@ -276,6 +286,9 @@ class Consumer implements ConsumerInterface, EventManagerAwareInterface
     public function handleShutdownSignal()
     {
         $this->keepAlive = false;
+        if ($this->msgInProgress == false) {
+            exit(0);
+        }
     }
 
     /**

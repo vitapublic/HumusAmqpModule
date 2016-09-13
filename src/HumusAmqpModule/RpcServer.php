@@ -59,6 +59,7 @@ class RpcServer extends Consumer
 
         $queue->consume(
             function ($message) use ($queue) {
+                $this->msgInProgress = true;
                 if ($message instanceof AMQPEnvelope) {
                     try {
                         $processFlag = $this->handleDelivery($message, $queue);
@@ -67,6 +68,11 @@ class RpcServer extends Consumer
                         $processFlag = false;
                     }
                     $this->handleProcessFlag($message, $processFlag);
+                }
+                $this->msgInProgress = false;
+
+                if (false == $this->keepAlive) {
+                    return false;
                 }
             }
         );
